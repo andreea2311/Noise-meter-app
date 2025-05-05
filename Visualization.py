@@ -5,10 +5,31 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import csv
 import threading
 import time
+from matplotlib import rcParams
 import numpy as np
 
 class NoiseMeterApp:
     def __init__(self, processor):
+        self.is_dark_theme = False
+        self.fullscreen = False
+        self.original_font_sizes = {}
+        self.themes = {
+            'light': {
+                'bg': '#ffffff',
+                'fg': '#000000',
+                'plot_bg': '#f8f8f8',
+                'axes_bg': '#ffffff',
+                'grid': '#dddddd'
+            },
+            'dark': {
+                'bg': '#2d2d2d',
+                'fg': '#ffffff',
+                'plot_bg': '#1e1e1e',
+                'axes_bg': '#2d2d2d',
+                'grid': '#404040'
+            }
+        }
+
         self.processor = processor
         self.root = tk.Tk()
         self.root.title("Real-Time Noise Meter")
@@ -95,6 +116,25 @@ class NoiseMeterApp:
             width=10
         )
         self.new_session_button.pack(side=tk.LEFT, padx=5)
+
+        self.theme_button = tk.Button(
+            self.button_frame,
+            text="☀️",
+            command=self.toggle_theme,
+            width=3
+        )
+        self.theme_button.pack(side=tk.LEFT, padx=5)
+
+        self.fullscreen_button = tk.Button(
+            self.button_frame,
+            text="⛶",
+            command=self.toggle_fullscreen,
+            width=3
+        )
+        self.fullscreen_button.pack(side=tk.LEFT, padx=5)
+
+        self.root.bind("<F11>", lambda event: self.toggle_fullscreen())
+        self.store_original_font_sizes()
         
         # Threshold Legend
         self.threshold_frame = tk.Frame(self.control_frame)
@@ -132,6 +172,84 @@ class NoiseMeterApp:
         self.running = False
         self.thread = None
         self.max_data_points = 600
+
+
+    def store_original_font_sizes(self):
+        self.original_font_sizes = {
+            'noise_label': self.noise_label.cget('font'),
+            'button_font': self.start_button.cget('font')
+        }
+
+    def toggle_theme(self):
+        self.is_dark_theme = not self.is_dark_theme
+        theme = self.themes['dark'] if self.is_dark_theme else self.themes['light']
+        
+        # Update UI colors
+        self.root.config(bg=theme['bg'])
+        self.control_frame.config(bg=theme['bg'])
+        self.vis_frame.config(bg=theme['bg'])
+        self.button_frame.config(bg=theme['bg'])
+        self.threshold_frame.config(bg=theme['bg'])
+        
+        # Update plot colors
+        self.figure.set_facecolor(theme['axes_bg'])
+        self.ax.set_facecolor(theme['plot_bg'])
+        self.ax.spines['bottom'].set_color(theme['fg'])
+        self.ax.spines['top'].set_color(theme['fg']) 
+        self.ax.spines['right'].set_color(theme['fg'])
+        self.ax.spines['left'].set_color(theme['fg'])
+        self.ax.xaxis.label.set_color(theme['fg'])
+        self.ax.yaxis.label.set_color(theme['fg'])
+        self.ax.title.set_color(theme['fg'])
+        self.ax.tick_params(axis='x', colors=theme['fg'])
+        self.ax.tick_params(axis='y', colors=theme['fg'])
+        self.ax.grid(color=theme['grid'])
+        
+        # Update widget colors - only for labels
+        for widget in self.threshold_frame.winfo_children():
+            if isinstance(widget, tk.Label):
+                widget.config(bg=theme['bg'], fg=theme['fg'])
+        
+        self.noise_label.config(bg=theme['bg'], fg=theme['fg'])
+        
+        self.theme_button.config(text="🌙" if self.is_dark_theme else "☀️")
+        self.canvas.draw()
+
+    def toggle_fullscreen(self):
+        self.fullscreen = not self.fullscreen
+        self.root.attributes("-fullscreen", self.fullscreen)
+        
+        if self.fullscreen:
+            # Enlarge elements
+            self.control_frame.grid_configure(pady=20)
+            self.noise_label.config(font=("Helvetica", 24))
+            self.progress.config(length=800)
+            self.button_frame.pack_configure(padx=30)
+            
+            # Increase font sizes
+            for button in [self.start_button, self.stop_button, 
+                        self.export_button, self.close_button, 
+                        self.new_session_button]:
+                current_font = button.cget('font')
+                if current_font == "TkDefaultFont":
+                    button.config(font=("Helvetica", 12))
+                else:
+                    size = int(current_font.split(" ")[-1])
+                    button.config(font=f"Helvetica {size + 4}")
+        else:
+            # Restore original sizes
+            self.control_frame.grid_configure(pady=10)
+            self.noise_label.config(font=self.original_font_sizes['noise_label'])
+            self.progress.config(length=300)
+            self.button_frame.pack_configure(padx=10)
+            
+            # Restore original fonts
+            for button in [self.start_button, self.stop_button,
+                        self.export_button, self.close_button,
+                        self.new_session_button]:
+                button.config(font=self.original_font_sizes['button_font'])
+        
+        self.root.update_idletasks()
 
     def configure_styles(self):
         style = ttk.Style()
