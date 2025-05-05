@@ -249,8 +249,11 @@ class NoiseMeterApp:
             self.ax.set_xlabel("Time (seconds)", fontsize=10)
             self.ax.set_ylabel("Decibels (dB)", fontsize=10)
             self.ax.grid(True, linestyle='--', alpha=0.6)
-            if len(self.line.get_label()) > 0:  # Only add legend if we have a label
+            
+            # Only create legend if we have data points
+            if len(db_levels) > 0:
                 self.ax.legend(loc='upper right')
+                
             self.ax.axhline(30, color='green', linestyle=':', alpha=0.5)
             self.ax.axhline(60, color='red', linestyle=':', alpha=0.5)
         
